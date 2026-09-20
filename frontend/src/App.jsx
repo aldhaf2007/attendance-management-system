@@ -188,112 +188,120 @@ export default function App() {
   }
 
   // 2. AUTHENTICATED CONSTANT DASHBOARDS (Admin, Department, Staff)
+  const userInitials = (currentUser.username || 'U').slice(0, 2).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50/60 bg-grid-subtle text-slate-900 flex flex-col font-sans selection:bg-blue-900 selection:text-white">
       
       {/* Top Academic Navigation Bar */}
-      <nav className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between text-xs font-bold relative z-40 shadow-xs">
+      <nav className="bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs font-bold sticky top-0 z-40 shadow-xs">
         
         {/* College Logo / Badge & Back Button */}
         <div className="flex items-center gap-3">
           <button
             onClick={handleGoBack}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all flex items-center gap-1 cursor-pointer font-bold"
+            className="p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer font-bold active:scale-95"
             title="Go Back to Home"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Back</span>
+            <ArrowLeft className="w-4 h-4 text-slate-600" />
+            <span className="hidden sm:inline text-xs">Back</span>
           </button>
 
-          <img 
-            src="/logo.png" 
-            alt="ARIGNAR ANNA COLLEGE" 
-            className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-full border border-blue-200 shadow-xs bg-white" 
-          />
-          <div>
-            <span className="text-slate-900 text-xs sm:text-sm font-black uppercase tracking-wider block leading-tight">
-              ARIGNAR ANNA COLLEGE
-            </span>
-            <span className="text-[10px] text-blue-700 font-bold block">Academic Attendance Portal</span>
+          <div className="flex items-center gap-2.5">
+            <img 
+              src="/logo.png" 
+              alt="ARIGNAR ANNA COLLEGE" 
+              className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-xl border border-blue-200 shadow-2xs bg-white" 
+            />
+            <div>
+              <span className="text-slate-900 text-xs sm:text-sm font-black uppercase tracking-wider block leading-tight">
+                ARIGNAR ANNA COLLEGE
+              </span>
+              <span className="text-[10px] text-blue-700 font-bold block leading-none mt-0.5">
+                Academic Management Portal
+              </span>
+            </div>
           </div>
         </div>
 
         {/* User Badge & Desktop Portal Buttons */}
         <div className="hidden lg:flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 px-3.5 py-1.5 rounded-xl">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-slate-600">User:</span>
-            <span className="text-blue-900 font-extrabold">{currentUser.username}</span>
-            <span className="px-2 py-0.5 rounded-md text-[10px] uppercase font-black bg-blue-100 text-blue-800 border border-blue-200">
+          {/* User Profile Pill */}
+          <div className="flex items-center gap-2 bg-slate-100/90 border border-slate-200 px-3 py-1 rounded-xl shadow-2xs">
+            <div className="w-6 h-6 rounded-lg bg-blue-900 text-white flex items-center justify-center font-black text-[10px]">
+              {userInitials}
+            </div>
+            <span className="text-slate-900 font-extrabold">{currentUser.username}</span>
+            <span className="px-2 py-0.5 rounded-md text-[9px] uppercase font-black bg-blue-100 text-blue-900 border border-blue-200">
               {currentUser.role}
             </span>
           </div>
 
           {currentUser.role === 'Admin' && (
-            <>
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 gap-1">
               <button
                 onClick={() => setActivePortal('admin_analytics')}
-                className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
                   activePortal === 'admin_analytics'
-                    ? 'bg-blue-900 text-white shadow-md font-extrabold'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                    ? 'bg-blue-900 text-white shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
-                <LayoutDashboard className="w-4 h-4" />
-                Global Analytics
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>Global Analytics</span>
               </button>
               <button
                 onClick={() => setActivePortal('admin_manage')}
-                className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
                   activePortal === 'admin_manage'
-                    ? 'bg-blue-900 text-white shadow-md font-extrabold'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                    ? 'bg-blue-900 text-white shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
-                <Settings className="w-4 h-4" />
-                Admin Setup
+                <Settings className="w-3.5 h-3.5" />
+                <span>Admin Setup</span>
               </button>
               <button
                 onClick={() => setActivePortal('admin_calendar')}
-                className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
                   activePortal === 'admin_calendar'
-                    ? 'bg-blue-900 text-white shadow-md font-extrabold'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                    ? 'bg-blue-900 text-white shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
-                <CalendarIcon className="w-4 h-4" />
-                Academic Calendar
+                <CalendarIcon className="w-3.5 h-3.5" />
+                <span>Calendar & Holidays</span>
               </button>
-            </>
+            </div>
           )}
 
           {currentUser.role === 'Department' && (
             <button
               onClick={() => setActivePortal('department_dashboard')}
-              className="px-3.5 py-2 rounded-xl bg-blue-900 text-white shadow-md font-extrabold flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-xl bg-blue-900 text-white shadow-xs font-black flex items-center gap-1.5"
             >
-              <LayoutDashboard className="w-4 h-4" />
-              Department Dashboard
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>Department Dashboard</span>
             </button>
           )}
 
           {currentUser.role === 'Staff' && (
             <button
               onClick={() => setActivePortal('staff_portal')}
-              className="px-3.5 py-2 rounded-xl bg-blue-900 text-white shadow-md font-extrabold flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-xl bg-blue-900 text-white shadow-xs font-black flex items-center gap-1.5"
             >
-              <UserCheck className="w-4 h-4" />
-              Staff History Portal
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Staff History Portal</span>
             </button>
           )}
 
           <button
             onClick={handleLogout}
-            className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer font-bold"
+            className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer font-bold shadow-2xs active:scale-95"
             title="Log Out"
           >
-            <LogOut className="w-4 h-4" />
-            Log Out / Home
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Log Out</span>
           </button>
         </div>
 
@@ -301,7 +309,7 @@ export default function App() {
         <div className="flex items-center gap-2 lg:hidden">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 focus:outline-none"
+            className="p-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-slate-700 focus:outline-none cursor-pointer transition-colors"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -311,7 +319,7 @@ export default function App() {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-b border-slate-200 p-4 space-y-3 shadow-lg animate-in slide-in-from-top-2 duration-150 z-30">
+        <div className="lg:hidden bg-white/95 backdrop-blur-md border-b border-slate-200 p-4 space-y-3 shadow-xl animate-in slide-in-from-top-2 duration-150 z-30">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-xs">
             <span className="text-slate-600">User: <strong className="text-blue-900">{currentUser.username}</strong></span>
             <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200">
