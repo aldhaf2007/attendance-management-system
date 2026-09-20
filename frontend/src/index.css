@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body, #root {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #ffffff;
+    color: #0F172A;
+    min-height: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button, input, select, textarea, a {
+    touch-action: manipulation;
+  }
+}
+
+/* Touch targets for Mobile & Smartboard Displays */
+.touch-target {
+  min-height: 48px;
+  min-width: 48px;
+  touch-action: manipulation;
+}
+
+/* Safe area padding for mobile devices (iPhone notch/home indicator) */
+.pb-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.pt-safe {
+  padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+}
+
+/* Hide scrollbar for horizontal swipeable tabs on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom Scrollbar for Attendance Tables */
+.table-scrollbar {
+  max-height: 560px;
+  overflow-y: auto;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #94A3B8 #F1F5F9;
+}
+
+.table-scrollbar::-webkit-scrollbar,
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-scrollbar::-webkit-scrollbar-track,
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb {
+  background: #94A3B8;
+  border-radius: 4px;
+  border: 1px solid #E2E8F0;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
+
+/* Mobile Sticky Table Column Utilities */
+.sticky-col-left {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+}
+
