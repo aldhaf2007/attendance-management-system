@@ -3,7 +3,8 @@ import {
   UserCheck, History, Award, BookOpen, Clock, Lock, 
   CheckCircle2, XCircle, LogIn, ShieldAlert, RefreshCw, GraduationCap,
   Building2, Search, Filter, Layers, ChevronRight, FileSpreadsheet,
-  CalendarDays, RotateCcw, ListChecks, AlertTriangle, Users
+  CalendarDays, RotateCcw, ListChecks, AlertTriangle, Users,
+  LayoutGrid, Table as TableIcon, Calendar
 } from 'lucide-react';
 import { authApi, staffPortalApi } from '../api';
 
@@ -18,6 +19,15 @@ export default function StaffPortal() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Mobile responsive view mode: 'cards' on mobile (<768px), 'table' on desktop
+  const [displayMode, setDisplayMode] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'cards';
+    }
+    return 'table';
+  });
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'shortage' | 'good'
 
   // Table Filter Controls
   const [tableFilterType, setTableFilterType] = useState('all'); // 'all' | 'monthly' | 'yearly' | 'daily' | 'custom'
@@ -355,6 +365,15 @@ export default function StaffPortal() {
     };
   }).sort((a, b) => a.roll_no.localeCompare(b.roll_no));
 
+  const shortageCount = summaryRosterRows.filter((st) => st.has_shortage).length;
+  const goodCount = summaryRosterRows.filter((st) => !st.has_shortage && st.total_conducted > 0).length;
+
+  const displayedRoster = summaryRosterRows.filter((st) => {
+    if (statusFilter === 'shortage') return st.has_shortage;
+    if (statusFilter === 'good') return !st.has_shortage && st.total_conducted > 0;
+    return true;
+  });
+
   const departmentThemes = [
     {
       badge: 'bg-blue-100 text-blue-900 border-blue-200',
@@ -453,10 +472,10 @@ export default function StaffPortal() {
       )}
 
       {/* Department Filter Selector Tabs */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs flex flex-wrap items-center gap-2">
+      <div className="bg-white border border-slate-200 rounded-2xl p-2.5 sm:p-3 shadow-xs flex items-center gap-2 overflow-x-auto no-scrollbar">
         <div className="px-2.5 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
           <Building2 className="w-4 h-4 text-slate-600" />
-          <span>Department Filter:</span>
+          <span>Department:</span>
         </div>
 
         <button
@@ -666,46 +685,121 @@ export default function StaffPortal() {
             </p>
           </div>
 
-          {/* View Mode Toggle: Daily (Period 1-5) vs Summary Roster vs Raw Audit Trail */}
-          <div className="inline-flex rounded-xl bg-slate-200/80 p-1 border border-slate-300 w-full sm:w-auto overflow-x-auto no-scrollbar justify-start sm:justify-center">
-            <button
-              onClick={() => setViewMode('daily')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
-                viewMode === 'daily'
-                  ? 'bg-white text-blue-950 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="View attendance by date and individual periods 1 to 5"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              Daily Periods ({dailyAttendanceRows.length})
-            </button>
-            <button
-              onClick={() => setViewMode('roster')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
-                viewMode === 'roster'
-                  ? 'bg-white text-blue-950 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="View student percentage summaries for periods taught by you"
-            >
-              <ListChecks className="w-3.5 h-3.5" />
-              Summary Roster ({summaryRosterRows.length})
-            </button>
-            <button
-              onClick={() => setViewMode('audit')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
-                viewMode === 'audit'
-                  ? 'bg-white text-blue-950 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="View full audit log of individual student period entries"
-            >
-              <History className="w-3.5 h-3.5" />
-              Audit Trail ({records.length})
-            </button>
+          {/* View Mode & Display Mode Toggles */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full xl:w-auto">
+            {/* View Mode: Daily vs Summary Roster vs Audit Trail */}
+            <div className="inline-flex rounded-xl bg-slate-200/80 p-1 border border-slate-300 w-full sm:w-auto overflow-x-auto no-scrollbar justify-start sm:justify-center">
+              <button
+                onClick={() => setViewMode('daily')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
+                  viewMode === 'daily'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="View attendance by date and individual periods 1 to 5"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Daily Periods ({dailyAttendanceRows.length})
+              </button>
+              <button
+                onClick={() => setViewMode('roster')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
+                  viewMode === 'roster'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="View student percentage summaries for periods taught by you"
+              >
+                <ListChecks className="w-3.5 h-3.5" />
+                Summary Roster ({summaryRosterRows.length})
+              </button>
+              <button
+                onClick={() => setViewMode('audit')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
+                  viewMode === 'audit'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="View full audit log of individual student period entries"
+              >
+                <History className="w-3.5 h-3.5" />
+                Audit Trail ({records.length})
+              </button>
+            </div>
+
+            {/* Display Mode Toggle: Mobile Cards vs Full Table */}
+            <div className="inline-flex rounded-xl bg-slate-200/80 p-1 border border-slate-300 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setDisplayMode('cards')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  displayMode === 'cards'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Mobile Cards view (Touch-friendly for smartphones)"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-blue-900" />
+                <span>Cards</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('table')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  displayMode === 'table'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Full Matrix Table view"
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Quick Status Filter Chips for Summary Roster */}
+        {viewMode === 'roster' && (
+          <div className="px-4 py-2 bg-slate-100/90 border-b border-slate-200 flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <span className="text-[10px] uppercase font-black text-slate-400 shrink-0">Quick Filter:</span>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                statusFilter === 'all'
+                  ? 'bg-blue-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              All ({summaryRosterRows.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('shortage')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                statusFilter === 'shortage'
+                  ? 'bg-rose-700 text-white shadow-xs'
+                  : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
+              }`}
+            >
+              <AlertTriangle className="w-3 h-3 text-rose-500" />
+              Shortage &lt;75% ({shortageCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('good')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                statusFilter === 'good'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+              }`}
+            >
+              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+              Good ≥75% ({goodCount})
+            </button>
+          </div>
+        )}
 
         {/* Excel Export Sub-Bar */}
         <div className="px-4 py-3 bg-emerald-50/50 border-b border-emerald-200/70 flex flex-wrap items-center justify-between gap-3">
@@ -956,252 +1050,472 @@ export default function StaffPortal() {
           </div>
         )}
 
-        {/* VIEW 1: Daily Attendance Table with Period 1 to 5 Columns */}
+        {/* VIEW 1: Daily Attendance (Cards vs Table) */}
         {viewMode === 'daily' && (
-          <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
-            <table className="w-full text-left border-collapse min-w-[950px] bg-white">
-              <thead className="sticky top-0 z-20 shadow-xs bg-slate-100">
-                <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Date</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3">Department</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Year</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 font-mono">Roll No</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4">Student Name</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 1</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 2</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 3</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 4</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 5</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Staff Taught Total</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Attendance Taken By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium bg-white">
-                {dailyAttendanceRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={12} className="py-12 text-center text-slate-500 bg-white">
-                      No daily attendance records found for this period.
-                    </td>
-                  </tr>
-                ) : (
-                  dailyAttendanceRows.map((row) => {
+          displayMode === 'cards' ? (
+            /* Mobile Cards View for Daily Periods */
+            <div className={`p-3 sm:p-5 transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+              {dailyAttendanceRows.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="font-bold text-sm">No daily attendance records found</p>
+                  <p className="text-xs text-slate-400 mt-1">Try selecting another timeframe or resetting filter.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {dailyAttendanceRows.map((row) => {
                     const theme = getThemeForDept(row.department_name);
                     return (
-                      <tr key={row.key} className="hover:bg-slate-50 transition-colors bg-white">
-                        <td className="py-3 px-4 sm:px-6 font-mono text-slate-800 font-semibold whitespace-nowrap">
-                          {row.date}
-                        </td>
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
-                            <Building2 className="w-3 h-3 opacity-70" />
-                            {row.department_name}
+                      <div
+                        key={row.key}
+                        className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3 hover:border-blue-300 transition-all"
+                      >
+                        {/* Top Header: Date, Department, Year */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-slate-500 shrink-0" />
+                            {row.date}
                           </span>
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                            Year {row.year || 2}
+                          <div className="flex items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
+                              <Building2 className="w-3 h-3 opacity-70" />
+                              {row.department_name}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              Y{row.year || 2}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Student Roll No & Name */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-sm font-extrabold text-slate-900 truncate">{row.student_name}</h4>
+                          </div>
+                          <span className="font-mono font-black text-xs px-2.5 py-1 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 shadow-2xs shrink-0">
+                            {row.roll_no}
                           </span>
-                        </td>
-                        <td className="py-3 px-4 font-mono font-extrabold text-blue-900 whitespace-nowrap">
-                          {row.roll_no}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
-                          {row.student_name}
-                        </td>
+                        </div>
 
-                        {/* Periods 1 to 5 Columns (Strictly showing periods taken by this staff) */}
-                        {[1, 2, 3, 4, 5].map((hour) => {
-                          const pData = row.periods[hour];
-                          if (!pData) {
-                            return (
-                              <td key={hour} className="py-3 px-3 text-center text-slate-300 font-bold text-xs" title="Not taken by you / unrecorded">
-                                -
-                              </td>
-                            );
-                          }
-                          const sLower = (pData.status || '').toLowerCase();
-                          const isPresent = sLower === 'present';
-                          const isAbsent = sLower === 'absent';
-
-                          return (
-                            <td key={hour} className="py-3 px-3 text-center">
-                              <div className="inline-flex flex-col items-center gap-0.5">
-                                <span
-                                  className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-wide ${
+                        {/* Periods 1 to 5 Status Micro-Row */}
+                        <div className="space-y-1">
+                          <span className="text-[9px] uppercase font-bold text-slate-400">Periods (1 – 5)</span>
+                          <div className="grid grid-cols-5 gap-1 text-center">
+                            {[1, 2, 3, 4, 5].map((hour) => {
+                              const pData = row.periods[hour];
+                              if (!pData) {
+                                return (
+                                  <div
+                                    key={hour}
+                                    className="py-1.5 px-0.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-300 font-mono text-[10px]"
+                                  >
+                                    <span className="block text-[8px] text-slate-400 font-bold">P{hour}</span>
+                                    -
+                                  </div>
+                                );
+                              }
+                              const sLower = (pData.status || '').toLowerCase();
+                              const isPresent = sLower === 'present';
+                              const isAbsent = sLower === 'absent';
+                              return (
+                                <div
+                                  key={hour}
+                                  className={`py-1.5 px-0.5 rounded-xl border text-[10px] font-black ${
                                     isPresent
-                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                       : isAbsent
-                                      ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                      : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                      : 'bg-amber-50 text-amber-900 border-amber-300'
                                   }`}
                                 >
-                                  {isPresent ? 'Present' : isAbsent ? 'Absent' : 'OD'}
-                                </span>
-                                {historyData?.staff_initials && (
-                                  <span
-                                    className="text-[9px] font-mono font-bold text-slate-500 bg-slate-100 px-1 rounded border border-slate-200"
-                                    title={`Conducted by ${historyData?.staff_name || historyData?.staff_username}`}
-                                  >
-                                    {historyData.staff_initials}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                          );
-                        })}
+                                  <span className="block text-[8px] text-slate-500 font-bold">P{hour}</span>
+                                  {isPresent ? 'Pres' : isAbsent ? 'Abs' : 'OD'}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-                        {/* Staff Taught Day Total */}
-                        <td className="py-3 px-3 text-center whitespace-nowrap">
-                          <span className="font-mono font-bold text-xs text-slate-800">
-                            {row.presentCount}/{row.conductedCount}
-                          </span>
-                          <span className="block text-[10px] text-slate-400 font-semibold">
-                            {row.conductedCount > 0 ? `${Math.round((row.presentCount / row.conductedCount) * 100)}%` : '0%'}
-                          </span>
-                        </td>
-
-                        {/* Staff Taken By Attribution */}
-                        <td className="py-3 px-4 sm:px-6 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 text-xs font-semibold">
+                        {/* Footer: Taught Total & Taken By */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Taught Total</span>
+                            <span className="font-mono font-bold text-slate-800">
+                              {row.presentCount}/{row.conductedCount}{' '}
+                              <span className="text-slate-500 font-normal">
+                                ({row.conductedCount > 0 ? `${Math.round((row.presentCount / row.conductedCount) * 100)}%` : '0%'})
+                              </span>
+                            </span>
+                          </div>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-[11px] font-semibold truncate">
                             {historyData?.staff_initials && (
-                              <span className="font-mono font-black text-[10px] bg-blue-200/80 px-1.5 py-0.5 rounded text-blue-950">
+                              <span className="font-mono font-black text-[9px] bg-blue-200/80 px-1 rounded text-blue-950 shrink-0">
                                 {historyData.staff_initials}
                               </span>
                             )}
-                            <span>{historyData?.staff_name || historyData?.staff_username}</span>
+                            <span className="truncate max-w-[110px]">{historyData?.staff_name || historyData?.staff_username}</span>
                           </span>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Desktop Full Matrix Table View */
+            <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+              <table className="w-full text-left border-collapse min-w-[950px] bg-white">
+                <thead className="sticky top-0 z-20 shadow-xs bg-slate-100">
+                  <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Date</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3">Department</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Year</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 font-mono">Roll No</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4">Student Name</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 1</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 2</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 3</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 4</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 5</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Staff Taught Total</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Attendance Taken By</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium bg-white">
+                  {dailyAttendanceRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="py-12 text-center text-slate-500 bg-white">
+                        No daily attendance records found for this period.
+                      </td>
+                    </tr>
+                  ) : (
+                    dailyAttendanceRows.map((row) => {
+                      const theme = getThemeForDept(row.department_name);
+                      return (
+                        <tr key={row.key} className="hover:bg-slate-50 transition-colors bg-white">
+                          <td className="py-3 px-4 sm:px-6 font-mono text-slate-800 font-semibold whitespace-nowrap">
+                            {row.date}
+                          </td>
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
+                              <Building2 className="w-3 h-3 opacity-70" />
+                              {row.department_name}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              Year {row.year || 2}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono font-extrabold text-blue-900 whitespace-nowrap">
+                            {row.roll_no}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
+                            {row.student_name}
+                          </td>
+
+                          {/* Periods 1 to 5 Columns */}
+                          {[1, 2, 3, 4, 5].map((hour) => {
+                            const pData = row.periods[hour];
+                            if (!pData) {
+                              return (
+                                <td key={hour} className="py-3 px-3 text-center text-slate-300 font-bold text-xs" title="Not taken by you / unrecorded">
+                                  -
+                                </td>
+                              );
+                            }
+                            const sLower = (pData.status || '').toLowerCase();
+                            const isPresent = sLower === 'present';
+                            const isAbsent = sLower === 'absent';
+
+                            return (
+                              <td key={hour} className="py-3 px-3 text-center">
+                                <div className="inline-flex flex-col items-center gap-0.5">
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-wide ${
+                                      isPresent
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : isAbsent
+                                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    }`}
+                                  >
+                                    {isPresent ? 'Present' : isAbsent ? 'Absent' : 'OD'}
+                                  </span>
+                                  {historyData?.staff_initials && (
+                                    <span
+                                      className="text-[9px] font-mono font-bold text-slate-500 bg-slate-100 px-1 rounded border border-slate-200"
+                                      title={`Conducted by ${historyData?.staff_name || historyData?.staff_username}`}
+                                    >
+                                      {historyData.staff_initials}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+
+                          {/* Staff Taught Day Total */}
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <span className="font-mono font-bold text-xs text-slate-800">
+                              {row.presentCount}/{row.conductedCount}
+                            </span>
+                            <span className="block text-[10px] text-slate-400 font-semibold">
+                              {row.conductedCount > 0 ? `${Math.round((row.presentCount / row.conductedCount) * 100)}%` : '0%'}
+                            </span>
+                          </td>
+
+                          {/* Staff Taken By Attribution */}
+                          <td className="py-3 px-4 sm:px-6 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 text-xs font-semibold">
+                              {historyData?.staff_initials && (
+                                <span className="font-mono font-black text-[10px] bg-blue-200/80 px-1.5 py-0.5 rounded text-blue-950">
+                                  {historyData.staff_initials}
+                                </span>
+                              )}
+                              <span>{historyData?.staff_name || historyData?.staff_username}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
 
-        {/* VIEW 2: Summary Roster Table */}
+        {/* VIEW 2: Summary Roster (Cards vs Table) */}
         {viewMode === 'roster' && (
-          <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
-            <table className="w-full text-left border-collapse min-w-[750px] bg-white">
-              <thead className="sticky top-0 z-20 shadow-xs bg-slate-100">
-                <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Roll No</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Student Name</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3">Department</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Year</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Periods Taught</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Present</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Absent</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">OD</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Attendance %</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium bg-white">
-                {summaryRosterRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-500 bg-white">
-                      No student records found matching criteria.
-                    </td>
-                  </tr>
-                ) : (
-                  summaryRosterRows.map((st) => {
+          displayMode === 'cards' ? (
+            /* Mobile Cards View for Summary Roster */
+            <div className={`p-3 sm:p-5 transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+              {displayedRoster.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="font-bold text-sm">No student records found</p>
+                  <p className="text-xs text-slate-400 mt-1">Try changing the search or quick status filter.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {displayedRoster.map((st) => {
                     const theme = getThemeForDept(st.department_name);
                     return (
-                      <tr key={st.key} className="hover:bg-slate-50 transition-colors bg-white">
-                        <td className="py-3.5 px-4 sm:px-6 font-mono font-extrabold text-blue-900">{st.roll_no}</td>
-                        <td className="py-3.5 px-4 sm:px-6 font-bold text-slate-900">{st.student_name}</td>
-                        <td className="py-3.5 px-3">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
-                            <Building2 className="w-3 h-3 opacity-70" />
-                            {st.department_name}
+                      <div
+                        key={st.key}
+                        className={`bg-white border rounded-2xl p-4 shadow-xs transition-all flex flex-col justify-between space-y-3 ${
+                          st.has_shortage
+                            ? 'border-rose-300 ring-1 ring-rose-200/70 bg-rose-50/20'
+                            : 'border-slate-200 hover:border-blue-300'
+                        }`}
+                      >
+                        {/* Top Header: Roll No badge, Department, Status */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="font-mono font-black text-xs px-2.5 py-1 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 shadow-2xs">
+                            {st.roll_no}
                           </span>
-                        </td>
-                        <td className="py-3.5 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
+                              <Building2 className="w-3 h-3 opacity-70" />
+                              {st.department_name}
+                            </span>
+                            {st.has_shortage ? (
+                              <span className="text-[11px] font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                &lt;75%
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                ≥75%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Student Name & Year */}
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-sm font-extrabold text-slate-900 leading-snug">{st.student_name}</h4>
+                          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
                             Year {st.year || 2}
                           </span>
-                        </td>
-                        <td className="py-3.5 px-3 text-center font-mono text-slate-700 font-bold">{st.total_conducted}</td>
-                        <td className="py-3.5 px-3 text-center font-mono font-bold text-emerald-700">{st.present}</td>
-                        <td className="py-3.5 px-3 text-center font-mono font-bold text-rose-700">{st.absent}</td>
-                        <td className="py-3.5 px-3 text-center font-mono font-bold text-amber-700">{st.od}</td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`font-mono font-extrabold px-2.5 py-1 rounded-xl text-xs ${
-                              st.has_shortage
-                                ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            }`}
-                          >
-                            {st.attendance_percentage}%
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {st.has_shortage ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
-                              Shortage (&lt;75%)
+                        </div>
+
+                        {/* Visual Progress Bar & Big % */}
+                        <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500 font-bold uppercase text-[10px] tracking-wider">Attendance Rate</span>
+                            <span className={`font-mono font-black text-sm ${st.has_shortage ? 'text-rose-700' : 'text-emerald-700'}`}>
+                              {st.attendance_percentage}%
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              Satisfactory
-                            </span>
-                          )}
-                        </td>
-                      </tr>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                st.has_shortage ? 'bg-rose-500' : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.min(st.attendance_percentage, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Breakdown Tally Badges */}
+                        <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] font-bold">
+                          <div className="bg-slate-100 py-1.5 px-1 rounded-lg border border-slate-200">
+                            <span className="text-slate-400 block text-[9px]">TOTAL</span>
+                            <span className="text-slate-800 font-black">{st.total_conducted}</span>
+                          </div>
+                          <div className="bg-emerald-50 py-1.5 px-1 rounded-lg border border-emerald-200">
+                            <span className="text-emerald-600 block text-[9px]">PRES</span>
+                            <span className="text-emerald-800 font-black">{st.present}</span>
+                          </div>
+                          <div className="bg-rose-50 py-1.5 px-1 rounded-lg border border-rose-200">
+                            <span className="text-rose-600 block text-[9px]">ABS</span>
+                            <span className="text-rose-800 font-black">{st.absent}</span>
+                          </div>
+                          <div className="bg-amber-50 py-1.5 px-1 rounded-lg border border-amber-200">
+                            <span className="text-amber-700 block text-[9px]">OD</span>
+                            <span className="text-amber-900 font-black">{st.od}</span>
+                          </div>
+                        </div>
+                      </div>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Desktop Full Matrix Table View */
+            <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+              <table className="w-full text-left border-collapse min-w-[750px] bg-white">
+                <thead className="sticky top-0 z-20 shadow-xs bg-slate-100">
+                  <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Roll No</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Student Name</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3">Department</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Year</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Periods Taught</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Present</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Absent</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">OD</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Attendance %</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium bg-white">
+                  {displayedRoster.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-slate-500 bg-white">
+                        No student records found matching criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    displayedRoster.map((st) => {
+                      const theme = getThemeForDept(st.department_name);
+                      return (
+                        <tr key={st.key} className="hover:bg-slate-50 transition-colors bg-white">
+                          <td className="py-3.5 px-4 sm:px-6 font-mono font-extrabold text-blue-900">{st.roll_no}</td>
+                          <td className="py-3.5 px-4 sm:px-6 font-bold text-slate-900">{st.student_name}</td>
+                          <td className="py-3.5 px-3">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
+                              <Building2 className="w-3 h-3 opacity-70" />
+                              {st.department_name}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              Year {st.year || 2}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center font-mono text-slate-700 font-bold">{st.total_conducted}</td>
+                          <td className="py-3.5 px-3 text-center font-mono font-bold text-emerald-700">{st.present}</td>
+                          <td className="py-3.5 px-3 text-center font-mono font-bold text-rose-700">{st.absent}</td>
+                          <td className="py-3.5 px-3 text-center font-mono font-bold text-amber-700">{st.od}</td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`font-mono font-extrabold px-2.5 py-1 rounded-xl text-xs ${
+                                st.has_shortage
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              }`}
+                            >
+                              {st.attendance_percentage}%
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            {st.has_shortage ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+                                Shortage (&lt;75%)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Satisfactory
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
 
-        {/* VIEW 3: Raw Audit Trail Records Table */}
+        {/* VIEW 3: Raw Audit Trail Records (Cards vs Table) */}
         {viewMode === 'audit' && (
-          <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
-            <table className="w-full text-left border-collapse min-w-[700px] bg-white">
-              <thead className="sticky top-0 z-20 shadow-xs bg-slate-100">
-                <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Date</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Period</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Department</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Year</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Student Roll No</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Student Name</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Marked Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium bg-white">
-                {records.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-500 bg-white">
-                      No audit records found matching criteria.
-                    </td>
-                  </tr>
-                ) : (
-                  records.map((rec) => {
+          displayMode === 'cards' ? (
+            /* Mobile Cards View for Audit Trail */
+            <div className={`p-3 sm:p-5 transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+              {records.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="font-bold text-sm">No audit records found</p>
+                  <p className="text-xs text-slate-400 mt-1">Try resetting filter or choosing another timeframe.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {records.map((rec) => {
                     const theme = getThemeForDept(rec.department_name);
                     return (
-                      <tr key={rec.id} className="hover:bg-slate-50 transition-colors bg-white">
-                        <td className="py-3.5 px-4 sm:px-6 font-mono text-slate-600">{rec.date}</td>
-                        <td className="py-3.5 px-3 text-center font-extrabold text-blue-900">P{rec.hour_number}</td>
-                        <td className="py-3.5 px-4 sm:px-6">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
+                      <div
+                        key={rec.id}
+                        className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-2.5 hover:border-blue-300 transition-all"
+                      >
+                        {/* Top Header: Date, Period */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-slate-500 shrink-0" />
+                            {rec.date}
+                          </span>
+                          <span className="font-black text-xs px-2.5 py-1 rounded-xl bg-blue-900 text-white shadow-2xs">
+                            P{rec.hour_number}
+                          </span>
+                        </div>
+
+                        {/* Dept & Year */}
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
                             <Building2 className="w-3 h-3 opacity-70" />
                             {rec.department_name}
                           </span>
-                        </td>
-                        <td className="py-3.5 px-3 text-center">
                           <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                             Year {rec.year || 2}
                           </span>
-                        </td>
-                        <td className="py-3.5 px-4 sm:px-6 font-mono font-bold text-blue-900">{rec.roll_no}</td>
-                        <td className="py-3.5 px-4 sm:px-6 text-slate-900 font-bold">{rec.student_name}</td>
-                        <td className="py-3.5 px-4 text-center">
+                        </div>
+
+                        {/* Student Roll No & Name */}
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-sm font-extrabold text-slate-900 truncate">{rec.student_name}</h4>
+                          <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 shrink-0">
+                            {rec.roll_no}
+                          </span>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Marked Status</span>
                           {rec.status === 'Present' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl text-xs font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-300">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -1220,14 +1534,83 @@ export default function StaffPortal() {
                               OD
                             </span>
                           )}
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Desktop Full Matrix Table View */
+            <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+              <table className="w-full text-left border-collapse min-w-[700px] bg-white">
+                <thead className="sticky top-0 z-20 shadow-xs bg-slate-100">
+                  <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Date</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Period</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Department</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Year</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Student Roll No</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Student Name</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Marked Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium bg-white">
+                  {records.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-500 bg-white">
+                        No audit records found matching criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    records.map((rec) => {
+                      const theme = getThemeForDept(rec.department_name);
+                      return (
+                        <tr key={rec.id} className="hover:bg-slate-50 transition-colors bg-white">
+                          <td className="py-3.5 px-4 sm:px-6 font-mono text-slate-600">{rec.date}</td>
+                          <td className="py-3.5 px-3 text-center font-extrabold text-blue-900">P{rec.hour_number}</td>
+                          <td className="py-3.5 px-4 sm:px-6">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-extrabold border ${theme.badge}`}>
+                              <Building2 className="w-3 h-3 opacity-70" />
+                              {rec.department_name}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              Year {rec.year || 2}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 sm:px-6 font-mono font-bold text-blue-900">{rec.roll_no}</td>
+                          <td className="py-3.5 px-4 sm:px-6 text-slate-900 font-bold">{rec.student_name}</td>
+                          <td className="py-3.5 px-4 text-center">
+                            {rec.status === 'Present' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl text-xs font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Present
+                              </span>
+                            )}
+                            {rec.status === 'Absent' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl text-xs font-extrabold bg-rose-50 text-rose-800 border border-rose-300">
+                                <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                Absent
+                              </span>
+                            )}
+                            {rec.status === 'OD' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl text-xs font-extrabold bg-amber-50 text-amber-900 border border-amber-300">
+                                <Clock className="w-3.5 h-3.5 text-amber-700" />
+                                OD
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
       </div>
 

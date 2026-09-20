@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, Users, UserCheck, UserX, AlertTriangle, 
   TrendingUp, ShieldAlert, CheckCircle2, RefreshCw, ArrowLeft, Building2,
-  Filter, Calendar, RotateCcw, Search, Clock, ListChecks, CalendarDays
+  Filter, Calendar, RotateCcw, Search, Clock, ListChecks, CalendarDays,
+  LayoutGrid, Table as TableIcon
 } from 'lucide-react';
 import { analyticsApi, exportApi } from '../api';
 
@@ -17,6 +18,15 @@ export default function DepartmentDashboard({
   const [isFiltering, setIsFiltering] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Mobile responsive view mode: 'cards' on mobile (<768px), 'table' on desktop
+  const [displayMode, setDisplayMode] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'cards';
+    }
+    return 'table';
+  });
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'shortage' | 'good'
   
   // Table Filter Controls
   const [tableFilterType, setTableFilterType] = useState('all'); // 'all' | 'monthly' | 'yearly' | 'daily' | 'custom'
@@ -173,6 +183,15 @@ export default function DepartmentDashboard({
     st.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     st.roll_no.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const shortageCount = filteredStudents.filter(st => st.has_shortage).length;
+  const goodCount = filteredStudents.filter(st => !st.has_shortage && st.total_hours_conducted > 0).length;
+
+  const displayedStudents = filteredStudents.filter(st => {
+    if (statusFilter === 'shortage') return st.has_shortage;
+    if (statusFilter === 'good') return !st.has_shortage && st.total_hours_conducted > 0;
+    return true;
+  });
 
   // Group daily logs into date + student rows with columns for Period 1, 2, 3, 4, 5
   const dailyAttendanceMap = {};
@@ -461,32 +480,107 @@ export default function DepartmentDashboard({
             </p>
           </div>
 
-          {/* View Mode Toggle: Summary Roster vs Daily Period Logs */}
-          <div className="inline-flex rounded-xl bg-slate-200/80 p-1 border border-slate-300 w-full sm:w-auto overflow-x-auto no-scrollbar justify-center">
-            <button
-              onClick={() => setViewMode('summary')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
-                viewMode === 'summary'
-                  ? 'bg-white text-blue-950 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ListChecks className="w-3.5 h-3.5" />
-              Summary Roster
-            </button>
-            <button
-              onClick={() => setViewMode('logs')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
-                viewMode === 'logs'
-                  ? 'bg-white text-blue-950 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              Daily Attendance ({dailyAttendanceRows.length})
-            </button>
+          {/* Right Control Toggles: View Mode & Mobile Responsive Display Mode */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {/* View Mode Toggle: Summary Roster vs Daily Period Logs */}
+            <div className="inline-flex rounded-xl bg-slate-200/80 p-1 border border-slate-300 overflow-x-auto no-scrollbar justify-center">
+              <button
+                onClick={() => setViewMode('summary')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
+                  viewMode === 'summary'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ListChecks className="w-3.5 h-3.5" />
+                Summary Roster
+              </button>
+              <button
+                onClick={() => setViewMode('logs')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${
+                  viewMode === 'logs'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Daily Attendance ({dailyAttendanceRows.length})
+              </button>
+            </div>
+
+            {/* Display Mode Toggle: Mobile Cards vs Full Table */}
+            <div className="inline-flex rounded-xl bg-slate-200/80 p-1 border border-slate-300">
+              <button
+                type="button"
+                onClick={() => setDisplayMode('cards')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  displayMode === 'cards'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Mobile Cards view (Touch-friendly for smartphones)"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-blue-900" />
+                <span>Cards</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('table')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  displayMode === 'table'
+                    ? 'bg-white text-blue-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Full Matrix Table view"
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Quick Status Filter Chips for Summary Roster */}
+        {viewMode === 'summary' && (
+          <div className="px-4 py-2 bg-slate-100/90 border-b border-slate-200 flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <span className="text-[10px] uppercase font-black text-slate-400 shrink-0">Quick Filter:</span>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                statusFilter === 'all'
+                  ? 'bg-blue-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              All ({filteredStudents.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('shortage')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                statusFilter === 'shortage'
+                  ? 'bg-rose-700 text-white shadow-xs'
+                  : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
+              }`}
+            >
+              <AlertTriangle className="w-3 h-3 text-rose-500" />
+              Shortage &lt;75% ({shortageCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('good')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                statusFilter === 'good'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+              }`}
+            >
+              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+              Good ≥75% ({goodCount})
+            </button>
+          </div>
+        )}
 
         {/* Filter Controls Bar with Filter Button and Quick Presets */}
         <div className="p-4 bg-slate-100/70 border-b border-slate-200 space-y-3">
@@ -646,86 +740,177 @@ export default function DepartmentDashboard({
           </div>
         )}
 
-        {/* View 1: Summary Roster Table */}
+        {/* View 1: Summary Roster */}
         {viewMode === 'summary' && (
-          <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
-            <table className="w-full text-left border-collapse min-w-[650px]">
-              <thead className="sticky top-0 z-20 shadow-xs">
-                <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Roll No</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Student Name</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Hours</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Present</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Absent</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">OD</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Attendance %</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium">
-                {filteredStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-500">
-                      No student records found matching the criteria.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredStudents.map((st) => (
-                    <tr key={st.roll_no} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3.5 px-4 sm:px-6 font-mono font-extrabold text-blue-900">{st.roll_no}</td>
-                      <td className="py-3.5 px-4 sm:px-6 font-bold text-slate-900">{st.name}</td>
-                      <td className="py-3.5 px-3 text-center font-mono text-slate-700">{st.total_hours_conducted}</td>
-                      <td className="py-3.5 px-3 text-center font-mono font-bold text-emerald-700">{st.present_hours}</td>
-                      <td className="py-3.5 px-3 text-center font-mono font-bold text-rose-700">{st.absent_hours}</td>
-                      <td className="py-3.5 px-3 text-center font-mono font-bold text-amber-700">{st.od_hours}</td>
-                      <td className="py-3.5 px-4 text-center">
+          displayMode === 'cards' ? (
+            /* Mobile-Optimized Cards View */
+            <div className={`p-3 sm:p-5 transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+              {displayedStudents.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="font-bold text-sm">No student records found</p>
+                  <p className="text-xs text-slate-400 mt-1">Try changing the search or status filter.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {displayedStudents.map((st) => (
+                    <div
+                      key={st.roll_no}
+                      className={`bg-white border rounded-2xl p-4 shadow-xs transition-all flex flex-col justify-between space-y-3 ${
+                        st.has_shortage
+                          ? 'border-rose-300 ring-1 ring-rose-200/70 bg-rose-50/20'
+                          : 'border-slate-200 hover:border-blue-300'
+                      }`}
+                    >
+                      {/* Top Header: Roll No badge + Status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-black text-xs px-2.5 py-1 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 shadow-2xs">
+                          {st.roll_no}
+                        </span>
                         {st.total_hours_conducted === 0 ? (
-                          <span className="font-mono font-bold px-2.5 py-1 rounded-xl text-xs bg-slate-100 text-slate-400 border border-slate-200">
-                            0.0%
-                          </span>
-                        ) : (
-                          <span
-                            className={`font-mono font-extrabold px-2.5 py-1 rounded-xl text-xs ${
-                              st.has_shortage
-                                ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            }`}
-                          >
-                            {st.attendance_percentage}%
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {st.total_hours_conducted === 0 ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                          <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                             No Sessions
                           </span>
-                        ) : st.attendance_percentage < 75 ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                            &lt;75%
+                        ) : st.has_shortage ? (
+                          <span className="text-[11px] font-extrabold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                            Shortage &lt;75%
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                             Satisfactory
                           </span>
                         )}
+                      </div>
+
+                      {/* Student Name */}
+                      <div>
+                        <h4 className="text-sm font-extrabold text-slate-900 leading-snug">{st.name}</h4>
+                      </div>
+
+                      {/* Visual Progress Bar & Big % */}
+                      <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 font-bold uppercase text-[10px] tracking-wider">Attendance Rate</span>
+                          <span className={`font-mono font-black text-sm ${st.has_shortage ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {st.attendance_percentage}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              st.has_shortage ? 'bg-rose-500' : 'bg-emerald-500'
+                            }`}
+                            style={{ width: `${Math.min(st.attendance_percentage, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Breakdown Tally Badges */}
+                      <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] font-bold">
+                        <div className="bg-slate-100 py-1.5 px-1 rounded-lg border border-slate-200">
+                          <span className="text-slate-400 block text-[9px]">TOTAL</span>
+                          <span className="text-slate-800 font-black">{st.total_hours_conducted}h</span>
+                        </div>
+                        <div className="bg-emerald-50 py-1.5 px-1 rounded-lg border border-emerald-200">
+                          <span className="text-emerald-600 block text-[9px]">PRES</span>
+                          <span className="text-emerald-800 font-black">{st.present_hours}</span>
+                        </div>
+                        <div className="bg-rose-50 py-1.5 px-1 rounded-lg border border-rose-200">
+                          <span className="text-rose-600 block text-[9px]">ABS</span>
+                          <span className="text-rose-800 font-black">{st.absent_hours}</span>
+                        </div>
+                        <div className="bg-amber-50 py-1.5 px-1 rounded-lg border border-amber-200">
+                          <span className="text-amber-700 block text-[9px]">OD</span>
+                          <span className="text-amber-900 font-black">{st.od_hours}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Desktop Full Matrix Table View */
+            <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+              <table className="w-full text-left border-collapse min-w-[650px]">
+                <thead className="sticky top-0 z-20 shadow-xs">
+                  <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Roll No</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Student Name</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Hours</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Present</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Absent</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">OD</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Attendance %</th>
+                    <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium">
+                  {displayedStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-500">
+                        No student records found matching the criteria.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    displayedStudents.map((st) => (
+                      <tr key={st.roll_no} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3.5 px-4 sm:px-6 font-mono font-extrabold text-blue-900">{st.roll_no}</td>
+                        <td className="py-3.5 px-4 sm:px-6 font-bold text-slate-900">{st.name}</td>
+                        <td className="py-3.5 px-3 text-center font-mono text-slate-700">{st.total_hours_conducted}</td>
+                        <td className="py-3.5 px-3 text-center font-mono font-bold text-emerald-700">{st.present_hours}</td>
+                        <td className="py-3.5 px-3 text-center font-mono font-bold text-rose-700">{st.absent_hours}</td>
+                        <td className="py-3.5 px-3 text-center font-mono font-bold text-amber-700">{st.od_hours}</td>
+                        <td className="py-3.5 px-4 text-center">
+                          {st.total_hours_conducted === 0 ? (
+                            <span className="font-mono font-bold px-2.5 py-1 rounded-xl text-xs bg-slate-100 text-slate-400 border border-slate-200">
+                              0.0%
+                            </span>
+                          ) : (
+                            <span
+                              className={`font-mono font-extrabold px-2.5 py-1 rounded-xl text-xs ${
+                                st.has_shortage
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              }`}
+                            >
+                              {st.attendance_percentage}%
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          {st.total_hours_conducted === 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                              No Sessions
+                            </span>
+                          ) : st.attendance_percentage < 75 ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                              &lt;75%
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              Satisfactory
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
 
         {/* View 2: Detailed Daily Attendance Table with Separate Period 1 to 5 Columns */}
         {viewMode === 'logs' && (
           <div className="space-y-3">
             {/* Quick Export Bar for Daily Attendance Table */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 bg-slate-50 border-b border-slate-200 text-xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-2.5 bg-slate-50 border-b border-slate-200 text-xs gap-2">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-indigo-700" />
+                <Clock className="w-4 h-4 text-indigo-700 shrink-0" />
                 <span className="font-extrabold text-slate-800">
                   Daily Period Attendance View
                 </span>
@@ -736,7 +921,7 @@ export default function DepartmentDashboard({
               <button
                 onClick={handleExportDailyTableDirect}
                 disabled={downloading}
-                className="px-3.5 py-1.5 bg-indigo-700 hover:bg-indigo-800 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="w-full sm:w-auto px-3.5 py-1.5 bg-indigo-700 hover:bg-indigo-800 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 title="Download this filtered daily table directly as Excel (.xlsx)"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -744,119 +929,219 @@ export default function DepartmentDashboard({
               </button>
             </div>
 
-            <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
-              <table className="w-full text-left border-collapse min-w-[950px]">
-              <thead className="sticky top-0 z-20 shadow-xs">
-                <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Date</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 font-mono">Roll No</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4">Student Name</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 1</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 2</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 3</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 4</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 5</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Day Total</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Attendance Taken By (Staff)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium">
+            {displayMode === 'cards' ? (
+              /* Mobile Daily Attendance Cards View */
+              <div className={`p-3 sm:p-5 transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
                 {filteredDailyRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-500">
-                      No daily attendance records found matching the criteria.
-                    </td>
-                  </tr>
+                  <div className="py-12 text-center text-slate-500 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                    <p className="font-bold text-sm">No daily attendance records found</p>
+                    <p className="text-xs text-slate-400 mt-1">Try selecting another timeframe or class year.</p>
+                  </div>
                 ) : (
-                  filteredDailyRows.map((row) => (
-                    <tr key={row.key} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 sm:px-6 font-mono text-slate-800 font-semibold whitespace-nowrap">
-                        {row.date}
-                      </td>
-                      <td className="py-3 px-4 font-mono font-extrabold text-blue-900">
-                        {row.roll_no}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
-                        {row.student_name}
-                      </td>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    {filteredDailyRows.map((row) => (
+                      <div
+                        key={row.key}
+                        className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3 hover:border-blue-300 transition-all"
+                      >
+                        {/* Top Header: Date badge + Roll No */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-slate-500 shrink-0" />
+                            {row.date}
+                          </span>
+                          <span className="font-mono font-black text-xs px-2.5 py-1 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 shadow-2xs">
+                            {row.roll_no}
+                          </span>
+                        </div>
 
-                      {/* Period 1 to 5 Columns */}
-                      {[1, 2, 3, 4, 5].map((hour) => {
-                        const pData = row.periods[hour];
-                        if (!pData) {
-                          return (
-                            <td key={hour} className="py-3 px-3 text-center text-slate-300 font-bold text-xs">
-                              -
-                            </td>
-                          );
-                        }
-                        const isPresent = pData.status?.toLowerCase() === 'present';
-                        const isAbsent = pData.status?.toLowerCase() === 'absent';
+                        {/* Student Name */}
+                        <div>
+                          <h4 className="text-sm font-extrabold text-slate-900">{row.student_name}</h4>
+                        </div>
 
-                        return (
-                          <td key={hour} className="py-3 px-3 text-center">
-                            <div className="inline-flex flex-col items-center gap-0.5">
-                              <span
-                                className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-wide ${
-                                  isPresent
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                    : isAbsent
-                                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                    : 'bg-amber-100 text-amber-800 border border-amber-300'
-                                }`}
-                              >
-                                {isPresent ? 'Present' : isAbsent ? 'Absent' : 'OD'}
-                              </span>
-                              {pData.staff_initials && (
-                                <span
-                                  className="text-[9px] font-mono font-bold text-slate-500 bg-slate-100 px-1 rounded border border-slate-200"
-                                  title={pData.staff_name ? `Taken by ${pData.staff_name}` : `Staff: ${pData.staff_initials}`}
+                        {/* 5-Period Status Micro-Row */}
+                        <div className="space-y-1">
+                          <span className="text-[9px] uppercase font-bold text-slate-400">Periods (1 – 5)</span>
+                          <div className="grid grid-cols-5 gap-1 text-center">
+                            {[1, 2, 3, 4, 5].map((periodNum) => {
+                              const p = row.periods[periodNum];
+                              if (!p || !p.status) {
+                                return (
+                                  <div
+                                    key={periodNum}
+                                    className="py-1.5 px-0.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-300 font-mono text-[10px]"
+                                  >
+                                    <span className="block text-[8px] text-slate-400 font-bold">P{periodNum}</span>
+                                    -
+                                  </div>
+                                );
+                              }
+                              const sLower = p.status.toLowerCase();
+                              const isPres = sLower === 'present';
+                              const isAbs = sLower === 'absent';
+                              const isOd = sLower === 'od';
+
+                              return (
+                                <div
+                                  key={periodNum}
+                                  className={`py-1.5 px-0.5 rounded-xl border text-[10px] font-black ${
+                                    isPres
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                      : isAbs
+                                      ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                      : isOd
+                                      ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200'
+                                  }`}
+                                  title={p.staff_name ? `Taken by ${p.staff_name}` : undefined}
                                 >
-                                  {pData.staff_initials}
-                                </span>
+                                  <span className="block text-[8px] opacity-75 font-bold">P{periodNum}</span>
+                                  {isPres ? '✓ Pres' : isAbs ? '✗ Abs' : isOd ? '⏱ OD' : p.status}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Bottom Summary Bar: Score + Staff attribution */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-500 font-bold">Day Total:</span>
+                            <span className="font-mono font-black text-slate-900 text-xs">
+                              {row.presentCount} / {row.conductedCount}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-semibold">
+                              ({row.conductedCount > 0 ? `${Math.round((row.presentCount / row.conductedCount) * 100)}%` : '0%'})
+                            </span>
+                          </div>
+                          {Object.keys(row.staffMap).length > 0 && (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200">
+                              By: {Object.keys(row.staffMap).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Desktop Matrix Table View */
+              <div className={`table-scrollbar transition-opacity ${isFiltering ? 'opacity-50 pointer-events-none' : ''}`}>
+                <table className="w-full text-left border-collapse min-w-[950px]">
+                  <thead className="sticky top-0 z-20 shadow-xs">
+                    <tr className="bg-slate-100 text-slate-700 text-xs font-extrabold uppercase border-b border-slate-200">
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Date</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 font-mono">Roll No</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4">Student Name</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 1</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 2</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 3</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 4</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center min-w-[95px]">Period 5</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-3 text-center">Day Total</th>
+                      <th className="sticky top-0 z-20 bg-slate-100 py-3.5 px-4 sm:px-6">Attendance Taken By (Staff)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 text-xs sm:text-sm font-medium">
+                    {filteredDailyRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="py-12 text-center text-slate-500">
+                          No daily attendance records found matching the criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredDailyRows.map((row) => (
+                        <tr key={row.key} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-4 sm:px-6 font-mono text-slate-800 font-semibold whitespace-nowrap">
+                            {row.date}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-extrabold text-blue-900">
+                            {row.roll_no}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
+                            {row.student_name}
+                          </td>
+
+                          {/* Period 1 to 5 Columns */}
+                          {[1, 2, 3, 4, 5].map((hour) => {
+                            const pData = row.periods[hour];
+                            if (!pData) {
+                              return (
+                                <td key={hour} className="py-3 px-3 text-center text-slate-300 font-bold text-xs">
+                                  -
+                                </td>
+                              );
+                            }
+                            const isPresent = pData.status?.toLowerCase() === 'present';
+                            const isAbsent = pData.status?.toLowerCase() === 'absent';
+
+                            return (
+                              <td key={hour} className="py-3 px-3 text-center">
+                                <div className="inline-flex flex-col items-center gap-0.5">
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-wide ${
+                                      isPresent
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : isAbsent
+                                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    }`}
+                                  >
+                                    {isPresent ? 'Present' : isAbsent ? 'Absent' : 'OD'}
+                                  </span>
+                                  {pData.staff_initials && (
+                                    <span
+                                      className="text-[9px] font-mono font-bold text-slate-500 bg-slate-100 px-1 rounded border border-slate-200"
+                                      title={pData.staff_name ? `Taken by ${pData.staff_name}` : `Staff: ${pData.staff_initials}`}
+                                    >
+                                      {pData.staff_initials}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+
+                          {/* Day Total Present / Conducted */}
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <span className="font-mono font-bold text-xs text-slate-800">
+                              {row.presentCount}/{row.conductedCount}
+                            </span>
+                            <span className="block text-[10px] text-slate-400 font-semibold">
+                              {row.conductedCount > 0 ? `${Math.round((row.presentCount / row.conductedCount) * 100)}%` : '0%'}
+                            </span>
+                          </td>
+
+                          {/* Staff Taken By Attribution */}
+                          <td className="py-3 px-4 sm:px-6">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {Object.keys(row.staffMap).length === 0 ? (
+                                <span className="text-slate-400 text-xs">-</span>
+                              ) : (
+                                Object.entries(row.staffMap).map(([initials, name]) => (
+                                  <span
+                                    key={initials}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-xs font-medium"
+                                    title={name}
+                                  >
+                                    <span className="font-mono font-black text-[10px] bg-blue-200/80 px-1 rounded text-blue-950">
+                                      {initials}
+                                    </span>
+                                    <span className="truncate max-w-[120px]">{name}</span>
+                                  </span>
+                                ))
                               )}
                             </div>
                           </td>
-                        );
-                      })}
-
-                      {/* Day Total Present / Conducted */}
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <span className="font-mono font-bold text-xs text-slate-800">
-                          {row.presentCount}/{row.conductedCount}
-                        </span>
-                        <span className="block text-[10px] text-slate-400 font-semibold">
-                          {row.conductedCount > 0 ? `${Math.round((row.presentCount / row.conductedCount) * 100)}%` : '0%'}
-                        </span>
-                      </td>
-
-                      {/* Staff Taken By Attribution */}
-                      <td className="py-3 px-4 sm:px-6">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {Object.keys(row.staffMap).length === 0 ? (
-                            <span className="text-slate-400 text-xs">-</span>
-                          ) : (
-                            Object.entries(row.staffMap).map(([initials, name]) => (
-                              <span
-                                key={initials}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-xs font-medium"
-                                title={name}
-                              >
-                                <span className="font-mono font-black text-[10px] bg-blue-200/80 px-1 rounded text-blue-950">
-                                  {initials}
-                                </span>
-                                <span className="truncate max-w-[120px]">{name}</span>
-                              </span>
-                            ))
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-            </div>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
