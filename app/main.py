@@ -141,6 +141,14 @@ async def lifespan(app: FastAPI):
                 )
         except Exception:
             pass
+
+        # Production security assertion
+        if settings.ENVIRONMENT == "production":
+            if settings.SECRET_KEY == settings.DEFAULT_INSECURE_SECRET_KEY or len(settings.SECRET_KEY) < 32:
+                raise RuntimeError(
+                    "CRITICAL SECURITY ERROR: Insecure or default SECRET_KEY configured in production! "
+                    "Set a 32+ character random SECRET_KEY in your .env file."
+                )
     yield
 
 app = FastAPI(
@@ -149,13 +157,24 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# 1. Restrict CORS to explicitly whitelisted origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# 2. HTTP Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(attendance.router, prefix=settings.API_V1_STR)

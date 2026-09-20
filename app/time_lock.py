@@ -75,8 +75,11 @@ async def verify_dual_layer_time_lock(
             detail=f"Invalid period/hour_number '{hour_number}'. Must be an integer between 1 and 5."
         )
 
+    # Bypass is strictly disallowed in production mode
+    can_bypass = settings.ENVIRONMENT in ["development", "test", "testing"] or settings.ALLOW_TIME_LOCK_BYPASS
+
     # Complete bypass for internal tests that need to bypass calendar checks as well
-    if bypass_header == "bypass-all":
+    if can_bypass and bypass_header == "bypass-all":
         return
 
     # 1. Calendar Status & Active Periods Enforcement
@@ -105,7 +108,7 @@ async def verify_dual_layer_time_lock(
             )
 
     # Bypass check for local development & automated test execution (bypasses clock time slots)
-    if settings.ALLOW_TIME_LOCK_BYPASS or (bypass_header and bypass_header == "bypass-secret-test"):
+    if can_bypass and (settings.ALLOW_TIME_LOCK_BYPASS or bypass_header == "bypass-secret-test"):
         return
 
     current_time = get_current_ist_time()

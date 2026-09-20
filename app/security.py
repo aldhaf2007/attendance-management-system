@@ -84,3 +84,37 @@ def decode_token(token: str) -> Dict[str, Any]:
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+# Thread-safe in-memory token revocation blacklist
+import threading
+import time
+
+_revoked_tokens: Dict[str, float] = {}
+_blacklist_lock = threading.Lock()
+
+def revoke_token(token: str, ttl_seconds: int = 86400) -> None:
+    """
+    Revokes a JWT token upon logout so it cannot be reused.
+    """
+    now = time.time()
+    with _blacklist_lock:
+        _revoked_tokens[token] = now + ttl_seconds
+        if len(_revoked_tokens) > 1000:
+            expired = [t for t, exp in _revoked_tokens.items() if exp < now]
+            for t in expired:
+                del _revoked_tokens[t]
+
+def is_token_revoked(token: str) -> bool:
+    """
+    Checks if a token has been revoked.
+    """
+    now = time.time()
+    with _blacklist_lock:
+        expiry = _revoked_tokens.get(token)
+        if expiry is None:
+            return False
+        if now > expiry:
+            del _revoked_tokens[token]
+            return False
+        return True
+

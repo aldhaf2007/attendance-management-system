@@ -1,5 +1,6 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, distinct
 from sqlalchemy.orm import selectinload
@@ -12,20 +13,30 @@ from app.schemas import (
     DepartmentOption, KioskSelectDepartmentRequest, KioskSelectDepartmentResponse
 )
 from app.security import (
-    verify_password, verify_pin, create_access_token, create_kiosk_unlock_token
+    verify_password, verify_pin, create_access_token, create_kiosk_unlock_token, revoke_token
 )
 from app.dependencies import get_current_user_context, CurrentUserContext, require_roles
+from app.rate_limiter import rate_limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Kiosk Unlock"])
 
 @router.post("/login", response_model=Token)
-async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(req: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Standard Login endpoint for 3-Level RBAC:
     - Level 1 Admin (`UserRole.ADMIN`)
     - Level 2 Department Terminal (`UserRole.DEPARTMENT`)
     - Level 3 Staff Member (`UserRole.STAFF`)
     """
+    # IP Rate Limiting: 10 attempts per minute per IP
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, wait_seconds = rate_limiter.check_ip_rate_limit(f"login_{client_ip}", max_requests=10, window_seconds=60)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many login attempts. Please wait {wait_seconds} seconds."
+        )
+
     clean_username = req.username.strip().lower() if req.username else ""
     result = await db.execute(select(User).where(func.lower(User.username) == clean_username))
     user = result.scalar_one_or_none()
@@ -37,12 +48,6 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
         if user.role == UserRole.DEPARTMENT and not user.password_hash:
             is_valid = True
         elif user.password_hash and verify_password(clean_password, user.password_hash):
-            is_valid = True
-        elif user.username.lower() == "admin" and clean_password == "admin":
-            is_valid = True
-        elif user.username.lower() == "cs_department" and clean_password == "dept":
-            is_valid = True
-        elif user.username.lower() == "prof_smith" and clean_password == "staff":
             is_valid = True
 
     if not user or not is_valid:
@@ -80,6 +85,15 @@ async def kiosk_unlock(
     Level 2 Department Terminal requires Staff PIN verification to unlock an hour slot.
     Validates staff PIN against `users` table and returns scoped submission token.
     """
+    # Account-based lockout check
+    account_key = f"user_id_{req.staff_id}"
+    is_locked, wait_secs = rate_limiter.is_account_locked(account_key)
+    if is_locked:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Staff PIN unlock locked due to consecutive failed attempts. Please retry in {wait_secs} seconds."
+        )
+
     result = await db.execute(select(User).where(User.id == req.staff_id))
     staff_user = result.scalar_one_or_none()
     
@@ -98,11 +112,18 @@ async def kiosk_unlock(
             )
             
     if not staff_user.pin_hash or not verify_pin(req.pin, staff_user.pin_hash):
+        is_now_locked, attempts_left, _ = rate_limiter.record_failed_pin(account_key)
+        if is_now_locked:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed PIN attempts. Account locked for 15 minutes."
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid PIN"
+            detail=f"Invalid PIN. {attempts_left} attempts remaining before lockout."
         )
     
+    rate_limiter.reset_failed_pin(account_key)
     target_dept_id = staff_user.department_id or ctx.department_id or 0
     
     token = create_kiosk_unlock_token(
@@ -163,7 +184,11 @@ async def kiosk_direct_unlock(
 
     staff_obj = None
 
-    if req.initials and req.initials.strip():
+    has_init = bool(req.initials and req.initials.strip())
+    has_id = bool(req.staff_id)
+    has_user = bool(req.username and req.username.strip())
+
+    if has_init:
         clean_init = req.initials.strip().upper()
         result = await db.execute(
             select(Staff).options(
@@ -176,14 +201,14 @@ async def kiosk_direct_unlock(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Staff member with initials '{clean_init}' not found."
             )
-    elif req.staff_id:
+    elif has_id:
         result = await db.execute(
             select(Staff).options(
                 selectinload(Staff.staff_department).selectinload(StaffDepartment.dept_1)
             ).where(Staff.id == req.staff_id)
         )
         staff_obj = result.scalar_one_or_none()
-    elif req.username:
+    elif has_user:
         result = await db.execute(
             select(Staff).options(
                 selectinload(Staff.staff_department).selectinload(StaffDepartment.dept_1)
@@ -191,7 +216,7 @@ async def kiosk_direct_unlock(
         )
         staff_obj = result.scalar_one_or_none()
     else:
-        # Direct PIN-only unlock: search all staff members for matching PIN hash
+        # Fallback: PIN-only lookup across staff members
         result = await db.execute(
             select(Staff).options(
                 selectinload(Staff.staff_department).selectinload(StaffDepartment.dept_1)
@@ -199,7 +224,6 @@ async def kiosk_direct_unlock(
         )
         all_staff = result.scalars().all()
         matched = [s for s in all_staff if s.pin_hash and verify_pin(clean_pin, s.pin_hash)]
-
         if len(matched) == 1:
             staff_obj = matched[0]
         elif len(matched) > 1:
@@ -219,11 +243,28 @@ async def kiosk_direct_unlock(
             detail="Staff member not found."
         )
 
+    # Account-based lockout check
+    account_key = f"staff_{staff_obj.initials.upper() if staff_obj.initials else staff_obj.id}"
+    is_locked, wait_secs = rate_limiter.is_account_locked(account_key)
+    if is_locked:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Staff account PIN unlock locked due to 5 consecutive failed attempts. Please retry in {wait_secs} seconds."
+        )
+
     if not staff_obj.pin_hash or not verify_pin(clean_pin, staff_obj.pin_hash):
+        is_now_locked, attempts_left, _ = rate_limiter.record_failed_pin(account_key)
+        if is_now_locked:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed PIN attempts. Account locked for 15 minutes."
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid 4-digit Staff PIN."
+            detail=f"Invalid 4-digit Staff PIN. {attempts_left} attempts remaining before account lockout."
         )
+
+    rate_limiter.reset_failed_pin(account_key)
 
     # Fetch all related departments for this staff member
     dept_options = await get_staff_related_departments(staff_obj, db)
@@ -432,4 +473,16 @@ async def get_me(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+@router.post("/logout")
+async def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())
+):
+    """
+    Revokes the current JWT session token so it cannot be reused.
+    """
+    token = credentials.credentials
+    revoke_token(token)
+    return {"message": "Session successfully logged out and token revoked."}
+
 

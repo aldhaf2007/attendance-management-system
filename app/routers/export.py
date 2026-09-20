@@ -40,6 +40,20 @@ async def get_available_years(
         
     return {"years": valid_years}
 
+def sanitize_workbook(wb: openpyxl.Workbook) -> openpyxl.Workbook:
+    """
+    Scans all worksheets and cells in the workbook.
+    Prevents Excel Formula Injection (CWE-1236) by prepending a single quote
+    to any text value that begins with '=', '+', '-', or '@'.
+    """
+    for sheet in wb.worksheets:
+        for row in sheet.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str):
+                    val = cell.value.strip()
+                    if val and val[0] in ("=", "+", "-", "@"):
+                        cell.value = f"'{cell.value}"
+    return wb
 
 def generate_daily_attendance_log_workbook(
     all_records: list,
@@ -376,6 +390,7 @@ def generate_daily_attendance_log_workbook(
         col_letter = get_column_letter(col[0].column)
         ws2.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
+    sanitize_workbook(wb)
     file_stream = io.BytesIO()
     wb.save(file_stream)
     file_stream.seek(0)
@@ -771,6 +786,7 @@ async def export_attendance_excel(
         ws2.column_dimensions[col_letter].width = max(max_len + 4, 15)
 
     # Save to BytesIO stream
+    sanitize_workbook(wb)
     file_stream = io.BytesIO()
     wb.save(file_stream)
     file_stream.seek(0)
@@ -1324,6 +1340,7 @@ async def export_global_attendance_excel(
         ws4.column_dimensions[col_letter].width = max(max_len + 4, 16)
 
     # Save to BytesIO stream
+    sanitize_workbook(wb)
     file_stream = io.BytesIO()
     wb.save(file_stream)
     file_stream.seek(0)

@@ -74,7 +74,12 @@ export default function App() {
     routeUserToPortal(loginData);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch (err) {
+      // Ignore if already revoked or network error
+    }
     localStorage.removeItem('active_jwt_token');
     localStorage.removeItem('kiosk_jwt_token');
     localStorage.removeItem('kiosk_submission_token');

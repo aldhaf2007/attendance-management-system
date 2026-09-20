@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import User, UserRole, Staff
-from app.security import decode_token
+from app.security import decode_token, is_token_revoked
 
 security_scheme = HTTPBearer()
 
@@ -37,6 +37,12 @@ async def get_current_user_context(
     db: AsyncSession = Depends(get_db)
 ) -> CurrentUserContext:
     token = credentials.credentials
+    if is_token_revoked(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     payload = decode_token(token)
     
     sub = payload.get("sub")

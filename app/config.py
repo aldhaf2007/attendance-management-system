@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -6,11 +6,22 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api"
     
-    # Security
+    # Environment & Security
+    ENVIRONMENT: str = "development"
+    DEFAULT_INSECURE_SECRET_KEY: str = "super-secret-key-change-in-production-attendance-2026!"
     SECRET_KEY: str = "super-secret-key-change-in-production-attendance-2026!"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours
     KIOSK_PIN_TOKEN_EXPIRE_MINUTES: int = 15  # 15 minutes short-lived submission window
+    
+    # Allowed CORS Origins Whitelist
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://localhost:8001",
+        "http://127.0.0.1:8001"
+    ]
     
     # Database URL: Primary Async MySQL Database
     DATABASE_URL: str = "mysql+aiomysql://root@localhost/attendance_db?unix_socket=/var/lib/mysql/mysql.sock"

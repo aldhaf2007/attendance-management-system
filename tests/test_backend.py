@@ -13,6 +13,10 @@ from app.models import Department, User, UserRole, Student, AttendanceRecord, At
 from app.security import get_password_hash, get_pin_hash
 from app.time_lock import IST, verify_dual_layer_time_lock
 from app.config import settings
+from app.rate_limiter import rate_limiter
+
+settings.ENVIRONMENT = "test"
+settings.ALLOW_TIME_LOCK_BYPASS = True
 
 # In-memory SQLite async engine for tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -58,6 +62,7 @@ async def async_client():
 
 @pytest_asyncio.fixture(autouse=True)
 async def seed_data():
+    rate_limiter.reset_all()
     async with TestingSessionLocal() as session:
         # Clear database tables before seed
         if "calendar_overrides" in Base.metadata.tables:
@@ -706,6 +711,118 @@ async def test_kiosk_multi_department_selection(async_client: AsyncClient):
     assert len(sub_records) == 1
     assert sub_records[0]["roll_no"] == "22CM01"
     assert sub_records[0]["status"] == "Present"
+
+
+@pytest.mark.asyncio
+async def test_security_backdoors_eliminated(async_client: AsyncClient):
+    # Verify former hardcoded backdoor credentials fail with 401
+    res1 = await async_client.post("/api/auth/login", json={"username": "admin", "password": "admin"})
+    assert res1.status_code == 401
+
+    res2 = await async_client.post("/api/auth/login", json={"username": "cs_department", "password": "dept"})
+    assert res2.status_code == 401
+
+    res3 = await async_client.post("/api/auth/login", json={"username": "prof_smith", "password": "staff"})
+    assert res3.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_security_headers_present(async_client: AsyncClient):
+    # Verify HTTP security headers on responses
+    res = await async_client.get("/")
+    assert res.status_code == 200
+    assert res.headers.get("X-Content-Type-Options") == "nosniff"
+    assert res.headers.get("X-Frame-Options") == "DENY"
+    assert res.headers.get("X-XSS-Protection") == "1; mode=block"
+    assert res.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+
+
+@pytest.mark.asyncio
+async def test_security_pin_brute_force_lockout(async_client: AsyncClient):
+    # Staff 'JS' has valid PIN '1234'
+    # Test that 5 consecutive wrong PINs trigger account lockout (429)
+    for i in range(4):
+        wrong_res = await async_client.post(
+            "/api/auth/kiosk/direct-unlock",
+            json={"initials": "JS", "pin": "0000", "hour_number": 1}
+        )
+        assert wrong_res.status_code == 401
+        assert "attempts remaining" in wrong_res.json()["detail"]
+
+    # 5th failed attempt -> locks account with 429
+    fifth_res = await async_client.post(
+        "/api/auth/kiosk/direct-unlock",
+        json={"initials": "JS", "pin": "0000", "hour_number": 1}
+    )
+    assert fifth_res.status_code == 429
+    assert "locked for 15 minutes" in fifth_res.json()["detail"].lower()
+
+    # 6th attempt (even with the CORRECT PIN) is rejected with 429 because account is locked!
+    locked_res = await async_client.post(
+        "/api/auth/kiosk/direct-unlock",
+        json={"initials": "JS", "pin": "1234", "hour_number": 1}
+    )
+    assert locked_res.status_code == 429
+    assert "locked" in locked_res.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_security_token_revocation_on_logout(async_client: AsyncClient):
+    # 1. Login as Admin
+    login_res = await async_client.post("/api/auth/login", json={"username": "admin_user", "password": "admin123"})
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Access protected endpoint -> 200
+    me_res = await async_client.get("/api/auth/me", headers=headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["username"] == "admin_user"
+
+    # 3. Call /api/auth/logout to invalidate token
+    logout_res = await async_client.post("/api/auth/logout", headers=headers)
+    assert logout_res.status_code == 200
+
+    # 4. Attempt to use revoked token -> 401 Unauthorized
+    revoked_res = await async_client.get("/api/auth/me", headers=headers)
+    assert revoked_res.status_code == 401
+    assert "revoked" in revoked_res.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_security_excel_formula_injection_sanitized(async_client: AsyncClient):
+    # 1. Login as Admin
+    admin_login = await async_client.post("/api/auth/login", json={"username": "admin_user", "password": "admin123"})
+    assert admin_login.status_code == 200
+    admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+    # 2. Create student with formula injection payload as name
+    payload_name = "=CMD|' /C calc'!A0"
+    create_res = await async_client.post(
+        "/api/admin/students",
+        headers=admin_headers,
+        json={"roll_no": "22CS99", "name": payload_name, "year": 2, "department_id": 1}
+    )
+    assert create_res.status_code == 200
+
+    # 3. Export Excel
+    export_res = await async_client.get(
+        f"/api/export/attendance/1/2/1?export_type=yearly&year_date={date.today().year}",
+        headers=admin_headers
+    )
+    assert export_res.status_code == 200
+
+    # 4. Load workbook and verify formula injection is neutralized with leading quote
+    wb = openpyxl.load_workbook(io.BytesIO(export_res.content))
+    ws = wb["Class Summary"]
+    found_student = False
+    for row in ws.iter_rows():
+        for cell in row:
+            if cell.value and "calc" in str(cell.value):
+                found_student = True
+                assert str(cell.value).startswith("'="), f"Cell value '{cell.value}' was not sanitized against formula injection!"
+    assert found_student, "Student with formula payload was not found in exported Excel sheet"
+
 
 
 
