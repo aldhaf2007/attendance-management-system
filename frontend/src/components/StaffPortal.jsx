@@ -4,11 +4,11 @@ import {
   CheckCircle2, XCircle, LogIn, ShieldAlert, RefreshCw, GraduationCap,
   Building2, Search, Filter, Layers, ChevronRight, FileSpreadsheet,
   CalendarDays, RotateCcw, ListChecks, AlertTriangle, Users,
-  LayoutGrid, Table as TableIcon, Calendar
+  LayoutGrid, Table as TableIcon, Calendar, Monitor
 } from 'lucide-react';
 import { authApi, staffPortalApi } from '../api';
 
-export default function StaffPortal() {
+export default function StaffPortal({ onLaunchTerminal = null }) {
   const [isStaffLoggedIn, setIsStaffLoggedIn] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: 'prof_smith', password: 'staff123' });
   const [loginError, setLoginError] = useState('');
@@ -455,13 +455,26 @@ export default function StaffPortal() {
           </div>
         </div>
 
-        <button
-          onClick={() => fetchStaffHistory(selectedDeptId)}
-          className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center gap-2 text-xs font-extrabold cursor-pointer shrink-0"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh History
-        </button>
+        <div className="flex items-center gap-2">
+          {onLaunchTerminal && (
+            <button
+              onClick={onLaunchTerminal}
+              className="px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xs font-black text-xs flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shrink-0"
+              title="Launch Attendance Terminal"
+            >
+              <Monitor className="w-4 h-4" />
+              <span>Take Attendance</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => fetchStaffHistory(selectedDeptId)}
+            className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center gap-2 text-xs font-extrabold cursor-pointer shrink-0"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="hidden sm:inline">Refresh History</span>
+          </button>
+        </div>
       </div>
 
       {error && (

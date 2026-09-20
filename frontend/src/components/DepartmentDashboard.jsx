@@ -3,7 +3,7 @@ import {
   FileSpreadsheet, Users, UserCheck, UserX, AlertTriangle, 
   TrendingUp, ShieldAlert, CheckCircle2, RefreshCw, ArrowLeft, Building2,
   Filter, Calendar, RotateCcw, Search, Clock, ListChecks, CalendarDays,
-  LayoutGrid, Table as TableIcon
+  LayoutGrid, Table as TableIcon, Monitor
 } from 'lucide-react';
 import { analyticsApi, exportApi } from '../api';
 
@@ -11,7 +11,8 @@ export default function DepartmentDashboard({
   departmentId = 1,
   year = 2,
   onYearChange = () => {},
-  onBackToTerminal = () => {}
+  onBackToTerminal = () => {},
+  onLaunchTerminal = null
 }) {
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -245,12 +246,12 @@ export default function DepartmentDashboard({
       <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={onBackToTerminal}
-            className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all flex items-center gap-1 cursor-pointer font-bold text-xs shrink-0"
-            title="Go to Terminal"
+            onClick={onLaunchTerminal || onBackToTerminal}
+            className="px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xs font-black text-xs flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shrink-0"
+            title="Launch Attendance Terminal"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Terminal</span>
+            <Monitor className="w-4 h-4" />
+            <span>Take Attendance</span>
           </button>
           <div className="flex items-center gap-3">
             <img 

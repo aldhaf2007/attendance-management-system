@@ -141,44 +141,46 @@ export default function App() {
     }
   };
 
-  // 1. UNAUTHENTICATED USER AT HOME PAGE
-  if (!currentUser) {
-    if (terminalState === 'kiosk_login') {
-      return (
-        <KioskLogin
-          onTerminalConfigured={handleTerminalConfigured}
-          onBack={handleExitTerminal}
+  // 1. ACTIVE ATTENDANCE TERMINAL KIOSK (Available both logged out & logged in)
+  if (terminalState === 'kiosk_login') {
+    return (
+      <KioskLogin
+        onTerminalConfigured={handleTerminalConfigured}
+        onBack={handleExitTerminal}
+        defaultInitials={currentUser?.role === 'Staff' ? (currentUser.initials || currentUser.username) : ''}
+      />
+    );
+  }
+
+  if (terminalState === 'grid_active' && terminalConfig) {
+    return (
+      <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans">
+        <Header
+          terminalName={`${terminalConfig.departmentName} (Year ${terminalConfig.year})`}
+          unlockedStaff={terminalConfig.unlockedStaff}
+          activePeriod={terminalConfig.unlockedHour}
+          periodSlots={periodSlots}
+          onLockTerminal={handleExitTerminal}
         />
-      );
-    }
-
-    if (terminalState === 'grid_active' && terminalConfig) {
-      return (
-        <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans">
-          <Header
-            terminalName={`${terminalConfig.departmentName} (Year ${terminalConfig.year})`}
+        <main className="flex-1 pb-16">
+          <AttendanceGrid
+            departmentId={terminalConfig.departmentId}
+            departmentName={terminalConfig.departmentName}
+            year={terminalConfig.year}
+            unlockedHour={terminalConfig.unlockedHour}
             unlockedStaff={terminalConfig.unlockedStaff}
-            activePeriod={terminalConfig.unlockedHour}
             periodSlots={periodSlots}
-            onLockTerminal={handleExitTerminal}
+            onBackToHome={handleExitTerminal}
+            onAttendanceSubmitted={handleExitTerminal}
+            onSwitchClass={handleSwitchClass}
           />
-          <main className="flex-1 pb-16">
-            <AttendanceGrid
-              departmentId={terminalConfig.departmentId}
-              departmentName={terminalConfig.departmentName}
-              year={terminalConfig.year}
-              unlockedHour={terminalConfig.unlockedHour}
-              unlockedStaff={terminalConfig.unlockedStaff}
-              periodSlots={periodSlots}
-              onBackToHome={handleExitTerminal}
-              onAttendanceSubmitted={handleExitTerminal}
-              onSwitchClass={handleSwitchClass}
-            />
-          </main>
-        </div>
-      );
-    }
+        </main>
+      </div>
+    );
+  }
 
+  // 2. UNAUTHENTICATED USER AT HOME PAGE
+  if (!currentUser) {
     return (
       <UnifiedLogin
         onLoginSuccess={handleLoginSuccess}
@@ -226,6 +228,16 @@ export default function App() {
 
         {/* User Badge & Desktop Portal Buttons */}
         <div className="hidden lg:flex items-center gap-3">
+          {/* Quick Launch Terminal Button for All Authenticated Users */}
+          <button
+            onClick={() => setTerminalState('kiosk_login')}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+            title="Launch Classroom Attendance Terminal"
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            <span>Take Attendance</span>
+          </button>
+
           {/* User Profile Pill */}
           <div className="flex items-center gap-2 bg-slate-100/90 border border-slate-200 px-3 py-1 rounded-xl shadow-2xs">
             <div className="w-6 h-6 rounded-lg bg-blue-900 text-white flex items-center justify-center font-black text-[10px]">
@@ -305,8 +317,17 @@ export default function App() {
           </button>
         </div>
 
-        {/* Mobile Menu Hamburger Button */}
+        {/* Mobile Menu Action Buttons */}
         <div className="flex items-center gap-2 lg:hidden">
+          <button
+            onClick={() => setTerminalState('kiosk_login')}
+            className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[11px] font-black flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
+            title="Take Attendance"
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            <span>Terminal</span>
+          </button>
+
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-slate-700 focus:outline-none cursor-pointer transition-colors"
@@ -328,6 +349,17 @@ export default function App() {
           </div>
 
           <div className="space-y-2">
+            {/* Prominent Classroom Attendance Terminal in Mobile Drawer */}
+            <button
+              onClick={() => { setTerminalState('kiosk_login'); setMobileMenuOpen(false); }}
+              className="w-full p-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-left font-black text-xs flex items-center justify-between shadow-sm cursor-pointer active:scale-[0.99] transition-all"
+            >
+              <div className="flex items-center gap-2.5">
+                <Monitor className="w-4 h-4" />
+                <span>Take Attendance (Terminal)</span>
+              </div>
+              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Kiosk</span>
+            </button>
             {currentUser.role === 'Admin' && (
               <>
                 <button
@@ -394,7 +426,8 @@ export default function App() {
             departmentId={selectedDeptId}
             year={selectedYear === 'all' ? 1 : selectedYear}
             onYearChange={setSelectedYear}
-            onBackToTerminal={handleLogout}
+            onBackToTerminal={() => setTerminalState('kiosk_login')}
+            onLaunchTerminal={() => setTerminalState('kiosk_login')}
           />
         )}
 
@@ -420,7 +453,9 @@ export default function App() {
 
         {/* CONSTANT DASHBOARD 3: STAFF PERSONAL HISTORY PORTAL */}
         {currentUser.role === 'Staff' && (
-          <StaffPortal />
+          <StaffPortal 
+            onLaunchTerminal={() => setTerminalState('kiosk_login')}
+          />
         )}
 
       </main>

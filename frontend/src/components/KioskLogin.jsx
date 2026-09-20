@@ -1,20 +1,26 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   KeyRound, UserCheck, ShieldAlert, ArrowRight, ArrowLeft, 
   Building2, GraduationCap, CheckCircle2, Clock 
 } from 'lucide-react';
 import { authApi } from '../api';
 
-export default function KioskLogin({ onTerminalConfigured, onBack = null }) {
+export default function KioskLogin({ onTerminalConfigured, onBack = null, defaultInitials = '' }) {
   const [step, setStep] = useState(1); // Step 1: PIN, Step 2: Department Selection, Step 3: Year Selection
   
-  const [staffInitials, setStaffInitials] = useState('');
+  const [staffInitials, setStaffInitials] = useState(defaultInitials || '');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const [verifiedSession, setVerifiedSession] = useState(null);
   const pinInputRef = useRef(null);
+
+  useEffect(() => {
+    if (defaultInitials && pinInputRef.current) {
+      pinInputRef.current.focus();
+    }
+  }, [defaultInitials]);
 
   const detectAutoPeriodSlot = () => {
     const now = new Date();
