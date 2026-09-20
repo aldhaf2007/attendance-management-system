@@ -5,8 +5,8 @@ echo "=================================================="
 echo " Preparing College Attendance Tracker Web App"
 echo "=================================================="
 
-echo "Ensuring ports 8000 (Backend) and 3000 (Frontend) are free..."
-fuser -k 8000/tcp 2>/dev/null || true
+echo "Ensuring ports 8001 (Backend) and 3000 (Frontend) are free..."
+fuser -k 8001/tcp 2>/dev/null || true
 fuser -k 3000/tcp 2>/dev/null || true
 pkill -f "uvicorn app.main:app" 2>/dev/null || true
 sleep 1
@@ -16,7 +16,7 @@ cleanup() {
     echo ""
     echo "Stopping servers..."
     kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
-    fuser -k 8000/tcp 2>/dev/null || true
+    fuser -k 8001/tcp 2>/dev/null || true
     fuser -k 3000/tcp 2>/dev/null || true
     exit 0
 }
@@ -40,8 +40,8 @@ echo "Initializing database schema..."
 python init_db.py
 
 # 1. Start FastAPI Backend in background with hot-reloading
-echo "Starting FastAPI Backend on http://localhost:8000 ..."
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+echo "Starting FastAPI Backend on http://localhost:8001 ..."
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload &
 BACKEND_PID=$!
 
 # 2. Start Vite Frontend in background
@@ -52,7 +52,7 @@ FRONTEND_PID=$!
 echo "=================================================="
 echo " App is running!"
 echo " Frontend: http://localhost:3000"
-echo " Backend API: http://localhost:8000/docs"
+echo " Backend API: http://localhost:8001/docs"
 echo " Database Engine: MySQL (mysql+aiomysql)"
 echo " Press Ctrl+C to stop all servers."
 echo "=================================================="

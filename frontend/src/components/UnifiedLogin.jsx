@@ -35,7 +35,7 @@ export default function UnifiedLogin({ onLoginSuccess, onLaunchTerminal }) {
       if (err.response?.data?.detail) {
         detail = err.response.data.detail;
       } else if (err.code === 'ERR_NETWORK' || !err.response) {
-        detail = 'Unable to reach backend server. Please check that the server is running on http://localhost:8000.';
+        detail = 'Unable to reach backend server. Please check that the server is running on http://localhost:8001.';
       }
       setError(detail);
     } finally {
