@@ -184,10 +184,63 @@ app.include_router(export.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(staff_portal.router, prefix=settings.API_V1_STR)
 
-@app.get("/")
-async def root():
-    return {
-        "message": "ARIGNAR ANNA COLLEGE - Attendance Tracker API Foundation is operational with 3-Level RBAC",
-        "college": "ARIGNAR ANNA COLLEGE",
-        "version": settings.VERSION
-    }
+import os
+from fastapi import status, Response
+from fastapi.responses import FileResponse, JSONResponse
+
+@app.get("/api/health", tags=["Health"])
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """Production health check probe for Docker, Coolify, and monitoring services."""
+    db_status = "connected"
+    status_code = status.HTTP_200_OK
+    try:
+        from app.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1;"))
+    except Exception as e:
+        db_status = f"disconnected: {str(e)}"
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "healthy" if status_code == 200 else "unhealthy",
+            "database": db_status,
+            "college": "ARIGNAR ANNA COLLEGE",
+            "version": settings.VERSION,
+            "environment": settings.ENVIRONMENT
+        }
+    )
+
+# Static file serving & SPA fallback when frontend/dist is present (Single-Host Mode / Coolify)
+DIST_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+
+if os.path.isdir(DIST_DIR):
+    from fastapi.staticfiles import StaticFiles
+    assets_dir = os.path.join(DIST_DIR, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa_app(full_path: str):
+        # Don't intercept API or OpenAPI docs
+        if full_path.startswith("api") or full_path in ["docs", "redoc", "openapi.json"]:
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        
+        target_file = os.path.join(DIST_DIR, full_path)
+        if full_path and os.path.isfile(target_file):
+            return FileResponse(target_file)
+        
+        index_file = os.path.join(DIST_DIR, "index.html")
+        if os.path.isfile(index_file):
+            return FileResponse(index_file)
+        return JSONResponse(status_code=404, content={"detail": "Frontend build not found"})
+else:
+    @app.get("/")
+    async def root():
+        return {
+            "message": "ARIGNAR ANNA COLLEGE - Attendance Tracker API Foundation is operational with 3-Level RBAC",
+            "college": "ARIGNAR ANNA COLLEGE",
+            "version": settings.VERSION
+        }

@@ -1,0 +1,39 @@
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword123}
+      MYSQL_DATABASE: ${DB_NAME:-attendance_db}
+    volumes:
+      - attendance_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${DB_ROOT_PASSWORD:-rootpassword123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      ENVIRONMENT: production
+      PORT: 8000
+      SECRET_KEY: ${SECRET_KEY:-replace-with-a-random-32-char-secret-key!}
+      DATABASE_URL: mysql+aiomysql://root:${DB_ROOT_PASSWORD:-rootpassword123}@db:3306/${DB_NAME:-attendance_db}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8000}
+      ALLOW_TIME_LOCK_BYPASS: "False"
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  attendance_db_data:
+    driver: local

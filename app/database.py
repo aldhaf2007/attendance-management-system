@@ -9,6 +9,10 @@ import os
 
 def get_effective_database_url() -> str:
     url = settings.DATABASE_URL
+    # In production, strictly use the configured database URL without silent SQLite fallback
+    if settings.ENVIRONMENT == "production":
+        return url
+
     if "mysql" in url:
         try:
             if "unix_socket=" in url:
@@ -53,15 +57,22 @@ def get_effective_database_url() -> str:
 
 effective_database_url = get_effective_database_url()
 
-connect_args = {}
+engine_kwargs = {
+    "echo": False,
+    "future": True,
+}
+
 if "sqlite" in effective_database_url:
-    connect_args["check_same_thread"] = False
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs["pool_size"] = settings.DB_POOL_SIZE
+    engine_kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
+    engine_kwargs["pool_recycle"] = settings.DB_POOL_RECYCLE
+    engine_kwargs["pool_pre_ping"] = True
 
 engine = create_async_engine(
     effective_database_url,
-    echo=False,
-    future=True,
-    connect_args=connect_args
+    **engine_kwargs
 )
 
 AsyncSessionLocal = async_sessionmaker(

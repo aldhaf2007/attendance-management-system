@@ -824,7 +824,17 @@ async def test_security_excel_formula_injection_sanitized(async_client: AsyncCli
     assert found_student, "Student with formula payload was not found in exported Excel sheet"
 
 
+@pytest.mark.asyncio
+async def test_health_check_endpoint(async_client: AsyncClient):
+    """Verify production health probes return 200 OK and valid JSON diagnostics."""
+    res1 = await async_client.get("/api/health")
+    assert res1.status_code == 200
+    data1 = res1.json()
+    assert data1["status"] == "healthy"
+    assert "database" in data1
+    assert data1["college"] == "ARIGNAR ANNA COLLEGE"
 
-
-
-
+    res2 = await async_client.get("/health")
+    assert res2.status_code == 200
+    data2 = res2.json()
+    assert data2["status"] == "healthy"
